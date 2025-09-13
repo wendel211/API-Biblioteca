@@ -1,0 +1,52 @@
+name: CI - API Biblioteca
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: biblioteca_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U user -d biblioteca_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Configurar Prisma
+        run: npx prisma generate
+
+      - name: Rodar migrations no banco de teste
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://user:password@localhost:5432/biblioteca_test?schema=public
+
+      - name: Rodar testes
+        run: npm test
+        env:
+          DATABASE_URL: postgresql://user:password@localhost:5432/biblioteca_test?schema=public
+          JWT_SECRET: supersecretjwt
